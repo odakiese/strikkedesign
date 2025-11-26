@@ -1,0 +1,85 @@
+.symbol-palette {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  box-shadow: var(--shadow-md);
+}
+
+.symbol-palette h3 {
+  margin: 0 0 18px 0;
+  font-family: 'Sora', sans-serif;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.symbol-section {
+  margin-bottom: 18px;
+}
+
+.symbol-section:last-child {
+  margin-bottom: 0;
+}
+
+.symbol-section h4 {
+  margin: 0 0 10px 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cable-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.symbol-button {
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.symbol-button:hover {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.03);
+}
+
+.symbol-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.symbol-button svg {
+  display: block;
+}
+
+.cable-button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 8px 12px;
+}
+
+.cable-button svg {
+  flex-shrink: 0;
+}

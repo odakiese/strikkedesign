@@ -1,0 +1,32 @@
+.grid-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.knitting-grid {
+  cursor: crosshair;
+  user-select: none;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.grid-cell {
+  transition: opacity 0.1s ease;
+}
+
+.grid-cell:hover {
+  opacity: 0.85;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.grid-label {
+  fill: var(--text-muted);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+}

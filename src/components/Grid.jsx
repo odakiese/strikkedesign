@@ -1,0 +1,254 @@
+import { useRef, useState } from 'react';
+import { renderSymbol, renderCableSymbol, getSymbolWidth, CABLE_SYMBOLS } from './SymbolPalette';
+import './Grid.css';
+
+export default function Grid({ 
+  width = 50, 
+  height = 50, 
+  grid, 
+  setGrid, 
+  selectedColor,
+  selectedSymbol = 'knit',
+  cellWidth = 20,
+  cellHeight = 15,
+  topToBottom = true,
+  showThickLines = true
+}) {
+  const [isDrawing, setIsDrawing] = useState(false);
+  const svgRef = useRef(null);
+  
+  const handleCellClick = (row, col) => {
+    // Get symbol info at click time
+    const symWidth = getSymbolWidth(selectedSymbol);
+    const isCableSymbol = CABLE_SYMBOLS.some(c => c.id === selectedSymbol);
+    
+    // For cables, check if there's enough space
+    if (isCableSymbol && col + symWidth > width) {
+      return; // Not enough space for cable
+    }
+
+    const newGrid = grid.map((r, ri) => {
+      if (ri !== row) return r;
+      
+      return r.map((c, ci) => {
+        if (isCableSymbol) {
+          // Multi-cell cable symbol
+          if (ci === col) {
+            // Anchor cell - stores the symbol
+            return { color: selectedColor, symbol: selectedSymbol };
+          } else if (ci > col && ci < col + symWidth) {
+            // Part of the cable - mark as continuation
+            return { color: selectedColor, symbol: `_cable_${col}` };
+          }
+        } else if (ci === col) {
+          // Single cell symbol
+          return { color: selectedColor, symbol: selectedSymbol };
+        }
+        return c;
+      });
+    });
+    setGrid(newGrid);
+  };
+  
+  const isCable = CABLE_SYMBOLS.some(c => c.id === selectedSymbol);
+
+  const handleMouseDown = (row, col) => {
+    // Only enable drag for non-cable symbols
+    if (!isCable) {
+      setIsDrawing(true);
+    }
+    handleCellClick(row, col);
+  };
+
+  const handleMouseEnter = (row, col) => {
+    if (isDrawing && !isCable) {
+      handleCellClick(row, col);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDrawing(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDrawing(false);
+  };
+
+  const LABEL_SIZE = 24;
+  const gridWidth = width * cellWidth;
+  const gridHeight = height * cellHeight;
+  const totalWidth = gridWidth + LABEL_SIZE;
+  const totalHeight = gridHeight + LABEL_SIZE;
+
+  // Find all cables to render them properly
+  const getCableInfo = (row, col) => {
+    const cell = grid[row][col];
+    if (!cell.symbol) return null;
+    
+    // Check if this is a cable anchor
+    const cable = CABLE_SYMBOLS.find(c => c.id === cell.symbol);
+    if (cable) {
+      return { isCableStart: true, symbol: cell.symbol, width: cable.width };
+    }
+    
+    // Check if this is part of a cable (continuation)
+    if (cell.symbol.startsWith('_cable_')) {
+      return { isCablePart: true };
+    }
+    
+    return null;
+  };
+
+  return (
+    <div className="grid-container">
+      <svg
+        ref={svgRef}
+        width={totalWidth}
+        height={totalHeight}
+        className="knitting-grid"
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Pass 1: Cell backgrounds */}
+        <g>
+          {grid.map((row, rowIndex) =>
+            row.map((cell, colIndex) => (
+              <rect
+                key={`bg-${rowIndex}-${colIndex}`}
+                x={colIndex * cellWidth}
+                y={rowIndex * cellHeight}
+                width={cellWidth}
+                height={cellHeight}
+                fill={cell.color}
+                stroke="#2a2a2a"
+                strokeWidth="0.5"
+                className="grid-cell"
+                onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
+                onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
+              />
+            ))
+          )}
+        </g>
+        
+        {/* Pass 2: Symbols (rendered on top of all backgrounds) */}
+        <g style={{ pointerEvents: 'none' }}>
+          {grid.map((row, rowIndex) =>
+            row.map((cell, colIndex) => {
+              const cableInfo = getCableInfo(rowIndex, colIndex);
+              
+              // Single-cell symbol
+              if (cell.symbol && cell.symbol !== 'knit' && !cableInfo) {
+                return (
+                  <g 
+                    key={`sym-${rowIndex}-${colIndex}`}
+                    transform={`translate(${colIndex * cellWidth}, ${rowIndex * cellHeight})`}
+                  >
+                    {renderSymbol(cell.symbol, cellWidth, cellHeight)}
+                  </g>
+                );
+              }
+              
+              // Cable symbol - only render from anchor cell
+              if (cableInfo?.isCableStart) {
+                const cableTotalWidth = cableInfo.width * cellWidth;
+                return (
+                  <g 
+                    key={`cable-${rowIndex}-${colIndex}`}
+                    transform={`translate(${colIndex * cellWidth}, ${rowIndex * cellHeight})`}
+                  >
+                    {/* White background to hide grid lines */}
+                    <rect 
+                      x={1} 
+                      y={1} 
+                      width={cableTotalWidth - 2} 
+                      height={cellHeight - 2} 
+                      fill={cell.color || '#FFFFFF'}
+                      stroke="none"
+                    />
+                    {renderCableSymbol(cableInfo.symbol, cableTotalWidth, cellHeight, cellWidth)}
+                  </g>
+                );
+              }
+              
+              return null;
+            })
+          )}
+        </g>
+
+        {/* Column numbers at bottom */}
+        <g transform={`translate(0, ${gridHeight})`}>
+          {Array.from({ length: width }, (_, i) => (
+            <text
+              key={`col-${i}`}
+              x={i * cellWidth + cellWidth / 2}
+              y={LABEL_SIZE - 6}
+              textAnchor="middle"
+              className="grid-label"
+              fontSize={width > 60 ? "8" : "10"}
+            >
+              {topToBottom ? i + 1 : width - i}
+            </text>
+          ))}
+        </g>
+
+        {/* Row numbers on right */}
+        <g transform={`translate(${gridWidth}, 0)`}>
+          {Array.from({ length: height }, (_, i) => (
+            <text
+              key={`row-${i}`}
+              x={4}
+              y={i * cellHeight + cellHeight / 2 + 3}
+              textAnchor="start"
+              className="grid-label"
+              fontSize={height > 60 ? "8" : "10"}
+            >
+              {topToBottom ? i + 1 : height - i}
+            </text>
+          ))}
+        </g>
+
+        {/* Thick vertical lines every 10 columns */}
+        {showThickLines && (
+          <g>
+            {Array.from({ length: Math.floor((width - 1) / 10) }, (_, i) => {
+              const k = (i + 1) * 10;
+              const pos = topToBottom ? k : width - k;
+              return (
+                <line
+                  key={`vline-${i}`}
+                  x1={pos * cellWidth}
+                  y1={0}
+                  x2={pos * cellWidth}
+                  y2={gridHeight}
+                  stroke="#888"
+                  strokeWidth="2"
+                />
+              );
+            })}
+          </g>
+        )}
+
+        {/* Thick horizontal lines every 10 rows */}
+        {showThickLines && (
+          <g>
+            {Array.from({ length: Math.floor((height - 1) / 10) }, (_, i) => {
+              const k = (i + 1) * 10;
+              const pos = topToBottom ? k : height - k;
+              return (
+                <line
+                  key={`hline-${i}`}
+                  x1={0}
+                  y1={pos * cellHeight}
+                  x2={gridWidth}
+                  y2={pos * cellHeight}
+                  stroke="#888"
+                  strokeWidth="2"
+                />
+              );
+            })}
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+}
