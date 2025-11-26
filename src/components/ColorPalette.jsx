@@ -1,7 +1,7 @@
 import './ColorPalette.css';
 
 const YARN_COLORS = [
-  { name: 'Naturhvit', hex: '#F5F5DC' },
+  { name: 'Hvit', hex: '#FFFFFF' },
   { name: 'Kremhvit', hex: '#FFFDD0' },
   { name: 'Lys grå', hex: '#C0C0C0' },
   { name: 'Mellomgrå', hex: '#808080' },

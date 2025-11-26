@@ -75,10 +75,11 @@ export default function Grid({
   };
 
   const LABEL_SIZE = 24;
+  const TOP_PADDING = 16; // Space for center marker
   const gridWidth = width * cellWidth;
   const gridHeight = height * cellHeight;
   const totalWidth = gridWidth + LABEL_SIZE;
-  const totalHeight = gridHeight + LABEL_SIZE;
+  const totalHeight = gridHeight + LABEL_SIZE + TOP_PADDING;
 
   // Find all cables to render them properly
   const getCableInfo = (row, col) => {
@@ -109,6 +110,15 @@ export default function Grid({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
+        {/* Center marker - triangle at top */}
+        <polygon
+          points={`${gridWidth / 2 - 10},0 ${gridWidth / 2 + 10},0 ${gridWidth / 2},15`}
+          fill="#4169E1"
+        />
+
+        {/* Grid content shifted down for marker */}
+        <g transform={`translate(0, ${TOP_PADDING})`}>
+        
         {/* Pass 1: Cell backgrounds */}
         <g>
           {grid.map((row, rowIndex) =>
@@ -248,6 +258,7 @@ export default function Grid({
             })}
           </g>
         )}
+        </g>
       </svg>
     </div>
   );
