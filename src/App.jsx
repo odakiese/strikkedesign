@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Grid from './components/Grid';
 import ColorPalette from './components/ColorPalette';
-import SymbolPalette, { CABLE_SYMBOLS } from './components/SymbolPalette';
+import SymbolPalette, { CABLE_SYMBOLS, KNITTING_SYMBOLS } from './components/SymbolPalette';
 import Toolbar from './components/Toolbar';
+import ImageUpload from './components/ImageUpload';
 import './App.css';
 
 const DEFAULT_WIDTH = 50;
@@ -21,13 +22,94 @@ function createEmptyGrid(width, height, color = DEFAULT_COLOR) {
 function App() {
   const [gridWidth, setGridWidth] = useState(DEFAULT_WIDTH);
   const [gridHeight, setGridHeight] = useState(DEFAULT_HEIGHT);
-  const [grid, setGrid] = useState(() => createEmptyGrid(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+  const [grid, setGridInternal] = useState(() => createEmptyGrid(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
   const [selectedColor, setSelectedColor] = useState('#000080'); // Marineblå
   const [recentColors, setRecentColors] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState('knit');
   const [topToBottom, setTopToBottom] = useState(true);
   const [showThickLines, setShowThickLines] = useState(true);
+  const [showImageUpload, setShowImageUpload] = useState(false);
   const gridRef = useRef(null);
+  const isUndoRedoAction = useRef(false);
+
+  // Wrapper for setGrid that saves history
+  const setGrid = useCallback((newGridOrUpdater) => {
+    if (isUndoRedoAction.current) {
+      // Don't save history for undo/redo actions
+      setGridInternal(newGridOrUpdater);
+      return;
+    }
+    
+    setGridInternal(prevGrid => {
+      const newGrid = typeof newGridOrUpdater === 'function' 
+        ? newGridOrUpdater(prevGrid) 
+        : newGridOrUpdater;
+      
+      // Save current grid to history
+      setHistory(prev => [...prev.slice(-50), prevGrid]); // Keep last 50 states
+      setFuture([]); // Clear redo stack on new action
+      
+      return newGrid;
+    });
+  }, []);
+
+  // Undo function
+  const handleUndo = useCallback(() => {
+    if (history.length === 0) return;
+    
+    isUndoRedoAction.current = true;
+    const previousGrid = history[history.length - 1];
+    
+    setHistory(prev => prev.slice(0, -1));
+    setFuture(prev => [grid, ...prev]);
+    setGridInternal(previousGrid);
+    
+    // Also update grid dimensions if they changed
+    if (previousGrid.length !== grid.length || previousGrid[0]?.length !== grid[0]?.length) {
+      setGridHeight(previousGrid.length);
+      setGridWidth(previousGrid[0]?.length || DEFAULT_WIDTH);
+    }
+    
+    setTimeout(() => { isUndoRedoAction.current = false; }, 0);
+  }, [history, grid]);
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    if (future.length === 0) return;
+    
+    isUndoRedoAction.current = true;
+    const nextGrid = future[0];
+    
+    setFuture(prev => prev.slice(1));
+    setHistory(prev => [...prev, grid]);
+    setGridInternal(nextGrid);
+    
+    // Also update grid dimensions if they changed
+    if (nextGrid.length !== grid.length || nextGrid[0]?.length !== grid[0]?.length) {
+      setGridHeight(nextGrid.length);
+      setGridWidth(nextGrid[0]?.length || DEFAULT_WIDTH);
+    }
+    
+    setTimeout(() => { isUndoRedoAction.current = false; }, 0);
+  }, [future, grid]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   const handleNewPattern = useCallback(() => {
     setGrid(createEmptyGrid(gridWidth, gridHeight));
@@ -36,6 +118,12 @@ function App() {
   const handleClear = useCallback(() => {
     setGrid(createEmptyGrid(grid[0].length, grid.length));
   }, [grid]);
+
+  const handleImageProcessed = useCallback((newGrid, newWidth, newHeight) => {
+    setGridWidth(newWidth);
+    setGridHeight(newHeight);
+    setGrid(newGrid);
+  }, []);
 
   const handleExport = useCallback(() => {
     const canvas = document.createElement('canvas');
@@ -130,11 +218,101 @@ function App() {
       ctx.stroke();
     }
 
-    // Download the image
+    // Download the main pattern image
+    const timestamp = Date.now();
     const link = document.createElement('a');
-    link.download = `strikkeoppskrift-${Date.now()}.png`;
+    link.download = `strikkeoppskrift-${timestamp}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+
+    // Find all unique symbols used in the grid (excluding 'knit' and cable parts)
+    const usedSymbolIds = new Set();
+    grid.forEach(row => {
+      row.forEach(cell => {
+        if (cell.symbol && cell.symbol !== 'knit' && !cell.symbol.startsWith('_cable_')) {
+          usedSymbolIds.add(cell.symbol);
+        }
+      });
+    });
+
+    // If there are symbols used, create a legend image
+    if (usedSymbolIds.size > 0) {
+      const allSymbols = [...KNITTING_SYMBOLS, ...CABLE_SYMBOLS];
+      const usedSymbols = allSymbols.filter(s => usedSymbolIds.has(s.id));
+
+      if (usedSymbols.length > 0) {
+        // Create legend canvas
+        const legendCanvas = document.createElement('canvas');
+        const legendCtx = legendCanvas.getContext('2d');
+        
+        const rowHeight = 50;
+        const legendWidth = 500;
+        const legendHeight = 60 + usedSymbols.length * rowHeight;
+        
+        legendCanvas.width = legendWidth;
+        legendCanvas.height = legendHeight;
+
+        // Fill background
+        legendCtx.fillStyle = '#ffffff';
+        legendCtx.fillRect(0, 0, legendWidth, legendHeight);
+
+        // Draw title
+        legendCtx.fillStyle = '#1a1a1a';
+        legendCtx.font = 'bold 18px sans-serif';
+        legendCtx.fillText('Symbolforklaring', 20, 35);
+
+        // Draw each symbol
+        usedSymbols.forEach((symbol, index) => {
+          const y = 60 + index * rowHeight;
+          
+          // Draw symbol box background
+          legendCtx.fillStyle = '#ffffff';
+          legendCtx.fillRect(20, y, 40, 30);
+          legendCtx.strokeStyle = '#ccc';
+          legendCtx.lineWidth = 1;
+          legendCtx.strokeRect(20, y, 40, 30);
+
+          // Draw the symbol
+          const symbolWidth = (symbol.width || 1) * 20;
+          const symbolX = 20 + (40 - symbolWidth) / 2;
+          const symbolY = y + (30 - 15) / 2;
+          
+          if (symbol.width && symbol.width > 1) {
+            // Cable symbol
+            drawCableOnCanvas(legendCtx, symbol.id, symbolX, symbolY, symbolWidth, 15, 20);
+          } else {
+            // Single-cell symbol
+            drawSymbolOnCanvas(legendCtx, symbol.id, symbolX, symbolY, 20, 15);
+          }
+
+          // Draw name
+          legendCtx.fillStyle = '#1a1a1a';
+          legendCtx.font = 'bold 14px sans-serif';
+          legendCtx.fillText(symbol.name, 75, y + 15);
+
+          // Draw description
+          legendCtx.fillStyle = '#666';
+          legendCtx.font = '12px sans-serif';
+          const description = symbol.description || '';
+          // Truncate if too long
+          const maxWidth = legendWidth - 90;
+          let displayText = description;
+          while (legendCtx.measureText(displayText).width > maxWidth && displayText.length > 0) {
+            displayText = displayText.slice(0, -1);
+          }
+          if (displayText !== description) displayText += '...';
+          legendCtx.fillText(displayText, 75, y + 32);
+        });
+
+        // Download legend image
+        setTimeout(() => {
+          const legendLink = document.createElement('a');
+          legendLink.download = `symbolforklaring-${timestamp}.png`;
+          legendLink.href = legendCanvas.toDataURL('image/png');
+          legendLink.click();
+        }, 500);
+      }
+    }
   }, [grid, topToBottom]);
 
   return (
@@ -182,6 +360,11 @@ function App() {
             onClear={handleClear}
             onExport={handleExport}
             onNewPattern={handleNewPattern}
+            onOpenImageUpload={() => setShowImageUpload(true)}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={history.length > 0}
+            canRedo={future.length > 0}
             topToBottom={topToBottom}
             setTopToBottom={setTopToBottom}
             showThickLines={showThickLines}
@@ -189,6 +372,13 @@ function App() {
           />
         </aside>
       </main>
+
+      {showImageUpload && (
+        <ImageUpload
+          onImageProcessed={handleImageProcessed}
+          onClose={() => setShowImageUpload(false)}
+        />
+      )}
       
       <footer className="app-footer">
         <p>Klikk og dra for å male • Bredde × Høyde: {grid[0].length} × {grid.length} masker</p>

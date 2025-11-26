@@ -118,6 +118,45 @@
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
+.btn-image {
+  width: 100%;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: white;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-image:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+.undo-redo-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-undo,
+.btn-redo {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-undo:hover:not(:disabled),
+.btn-redo:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.btn-undo:disabled,
+.btn-redo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;

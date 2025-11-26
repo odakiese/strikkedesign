@@ -85,9 +85,6 @@
 
 .canvas-area {
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
   overflow: auto;
   background: var(--bg-glass-strong);
   backdrop-filter: blur(20px);

@@ -8,6 +8,11 @@ export default function Toolbar({
   onClear, 
   onExport,
   onNewPattern,
+  onOpenImageUpload,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   topToBottom,
   setTopToBottom,
   showThickLines,
@@ -66,6 +71,35 @@ export default function Toolbar({
         </label>
       </div>
       
+      <div className="toolbar-section">
+        <h3>Importer</h3>
+        <button className="btn btn-image" onClick={onOpenImageUpload}>
+          📷 Last opp bilde
+        </button>
+      </div>
+
+      <div className="toolbar-section">
+        <h3>Angre</h3>
+        <div className="undo-redo-buttons">
+          <button 
+            className="btn btn-undo" 
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Angre (⌘Z)"
+          >
+            ↩️ Angre
+          </button>
+          <button 
+            className="btn btn-redo" 
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Gjør om (⌘Y)"
+          >
+            ↪️ Gjør om
+          </button>
+        </div>
+      </div>
+
       <div className="toolbar-section">
         <h3>Handlinger</h3>
         <div className="action-buttons">
