@@ -41,7 +41,7 @@
 
 .app-header h1 {
   margin: 0;
-  font-family: 'Sora', sans-serif;
+  font-family: 'Fredoka One', cursive;
   font-size: 2.2rem;
   font-weight: 600;
   letter-spacing: -1px;
@@ -85,14 +85,71 @@
 
 .canvas-area {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-glass-strong);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 28px;
   box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.canvas-area .zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.canvas-area .zoom-controls button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: white;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: var(--text-secondary);
+}
+
+.canvas-area .zoom-controls button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.canvas-area .zoom-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.canvas-area .zoom-level {
+  min-width: 55px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.canvas-area .zoom-reset {
+  margin-left: 4px;
+  font-size: 16px;
+}
+
+.grid-scroll-container {
+  flex: 1;
+  overflow: auto;
+  padding: 28px;
 }
 
 .app-footer {

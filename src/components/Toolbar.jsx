@@ -9,6 +9,7 @@ export default function Toolbar({
   onExport,
   onNewPattern,
   onOpenImageUpload,
+  onOpenSweaterGenerator,
   topToBottom,
   setTopToBottom,
   showThickLines,
@@ -71,6 +72,13 @@ export default function Toolbar({
         <h3>Importer</h3>
         <button className="btn btn-image" onClick={onOpenImageUpload}>
           📷 Last opp bilde
+        </button>
+      </div>
+
+      <div className="toolbar-section">
+        <h3>Lag oppskrift</h3>
+        <button className="btn btn-sweater" onClick={onOpenSweaterGenerator}>
+          🧶 Lag genser-oppskrift
         </button>
       </div>
 

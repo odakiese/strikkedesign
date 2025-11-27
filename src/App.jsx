@@ -4,6 +4,7 @@ import ColorPalette from './components/ColorPalette';
 import SymbolPalette, { CABLE_SYMBOLS, KNITTING_SYMBOLS } from './components/SymbolPalette';
 import Toolbar from './components/Toolbar';
 import ImageUpload from './components/ImageUpload';
+import SweaterGenerator from './components/SweaterGenerator';
 import './App.css';
 
 const DEFAULT_WIDTH = 50;
@@ -31,10 +32,17 @@ function App() {
   const [topToBottom, setTopToBottom] = useState(true);
   const [showThickLines, setShowThickLines] = useState(true);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showSweaterGenerator, setShowSweaterGenerator] = useState(false);
   const [selection, setSelection] = useState(null); // { startRow, startCol, endRow, endCol }
   const [clipboard, setClipboard] = useState(null); // Copied cells data
+  const [zoom, setZoom] = useState(1);
   const gridRef = useRef(null);
   const isUndoRedoAction = useRef(false);
+  
+  // Zoom handlers
+  const handleZoomIn = () => setZoom(z => Math.min(z + 0.25, 3));
+  const handleZoomOut = () => setZoom(z => Math.max(z - 0.25, 0.25));
+  const handleZoomReset = () => setZoom(1);
 
   // Wrapper for setGrid that saves history
   const setGrid = useCallback((newGridOrUpdater) => {
@@ -446,21 +454,32 @@ function App() {
         </aside>
         
         <section className="canvas-area" ref={gridRef}>
-          <Grid
-            width={grid[0].length}
-            height={grid.length}
-            grid={grid}
-            setGrid={setGrid}
-            selectedColor={selectedColor}
-            selectedSymbol={selectedSymbol}
-            cellWidth={CELL_WIDTH}
-            cellHeight={CELL_HEIGHT}
-            topToBottom={topToBottom}
-            showThickLines={showThickLines}
-            selection={selection}
-            setSelection={setSelection}
-            clipboard={clipboard}
-          />
+          {/* Zoom controls - fixed position */}
+          <div className="zoom-controls">
+            <button onClick={handleZoomOut} title="Zoom ut" disabled={zoom <= 0.25}>−</button>
+            <span className="zoom-level">{Math.round(zoom * 100)}%</span>
+            <button onClick={handleZoomIn} title="Zoom inn" disabled={zoom >= 3}>+</button>
+            <button onClick={handleZoomReset} title="Tilbakestill zoom" className="zoom-reset">⟲</button>
+          </div>
+          
+          <div className="grid-scroll-container">
+            <Grid
+              width={grid[0].length}
+              height={grid.length}
+              grid={grid}
+              setGrid={setGrid}
+              selectedColor={selectedColor}
+              selectedSymbol={selectedSymbol}
+              cellWidth={CELL_WIDTH}
+              cellHeight={CELL_HEIGHT}
+              topToBottom={topToBottom}
+              showThickLines={showThickLines}
+              selection={selection}
+              setSelection={setSelection}
+              clipboard={clipboard}
+              zoom={zoom}
+            />
+      </div>
         </section>
         
         <aside className="sidebar right-sidebar">
@@ -473,6 +492,7 @@ function App() {
             onExport={handleExport}
             onNewPattern={handleNewPattern}
             onOpenImageUpload={() => setShowImageUpload(true)}
+            onOpenSweaterGenerator={() => setShowSweaterGenerator(true)}
             topToBottom={topToBottom}
             setTopToBottom={setTopToBottom}
             showThickLines={showThickLines}
@@ -485,6 +505,13 @@ function App() {
         <ImageUpload
           onImageProcessed={handleImageProcessed}
           onClose={() => setShowImageUpload(false)}
+        />
+      )}
+
+      {showSweaterGenerator && (
+        <SweaterGenerator
+          grid={grid}
+          onClose={() => setShowSweaterGenerator(false)}
         />
       )}
       

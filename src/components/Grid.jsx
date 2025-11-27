@@ -9,17 +9,22 @@ export default function Grid({
   setGrid, 
   selectedColor,
   selectedSymbol = 'knit',
-  cellWidth = 20,
-  cellHeight = 15,
+  cellWidth: baseCellWidth = 20,
+  cellHeight: baseCellHeight = 15,
   topToBottom = true,
   showThickLines = true,
   selection,
   setSelection,
-  clipboard
+  clipboard,
+  zoom = 1
 }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const svgRef = useRef(null);
+  
+  // Apply zoom to cell dimensions
+  const cellWidth = baseCellWidth * zoom;
+  const cellHeight = baseCellHeight * zoom;
   
   const handleCellClick = (row, col) => {
     // Get symbol info at click time

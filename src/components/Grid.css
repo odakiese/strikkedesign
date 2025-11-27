@@ -20,7 +20,7 @@
 
 .grid-label {
   fill: var(--text-muted);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 500;
   user-select: none;
   pointer-events: none;
