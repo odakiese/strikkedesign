@@ -1,14 +1,44 @@
 import { useState, useRef } from 'react';
 import './ImageUpload.css';
 
+// Yarn colors for custom palette selection
+const YARN_COLORS = [
+  { name: 'Hvit', hex: '#FFFFFF' },
+  { name: 'Kremhvit', hex: '#FFFDD0' },
+  { name: 'Lys grå', hex: '#C0C0C0' },
+  { name: 'Mellomgrå', hex: '#808080' },
+  { name: 'Koksgrå', hex: '#36454F' },
+  { name: 'Svart', hex: '#1a1a1a' },
+  { name: 'Marineblå', hex: '#000080' },
+  { name: 'Kongeblå', hex: '#4169E1' },
+  { name: 'Himmelblå', hex: '#87CEEB' },
+  { name: 'Dus rosa', hex: '#FFB6C1' },
+  { name: 'Bringebær', hex: '#E30B5C' },
+  { name: 'Burgunder', hex: '#800020' },
+  { name: 'Rust', hex: '#B7410E' },
+  { name: 'Terrakotta', hex: '#E2725B' },
+  { name: 'Sennep', hex: '#FFDB58' },
+  { name: 'Honning', hex: '#EB9605' },
+  { name: 'Skoggrønn', hex: '#228B22' },
+  { name: 'Jadegrønn', hex: '#00A86B' },
+  { name: 'Dus mint', hex: '#98FF98' },
+  { name: 'Lavendel', hex: '#E6E6FA' },
+  { name: 'Plomme', hex: '#8E4585' },
+  { name: 'Korall', hex: '#FF7F50' },
+  { name: 'Kamel', hex: '#C19A6B' },
+  { name: 'Sjokolade', hex: '#7B3F00' },
+];
+
 export default function ImageUpload({ onImageProcessed, onClose }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [maxWidth, setMaxWidth] = useState(50);
   const [maxHeight, setMaxHeight] = useState(50);
-  const [colorCount, setColorCount] = useState(0); // 0 = unlimited
+  const [colorCount, setColorCount] = useState(3);
   const [resultSize, setResultSize] = useState(null);
   const [originalSize, setOriginalSize] = useState(null);
+  const [paletteMode, setPaletteMode] = useState('auto'); // 'auto' or 'custom'
+  const [customPalette, setCustomPalette] = useState([]); // Array of hex colors
   const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
@@ -70,6 +100,56 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
     setColorCount(count);
   };
 
+  // Custom palette functions
+  const addToCustomPalette = (hex) => {
+    if (!customPalette.includes(hex)) {
+      setCustomPalette([...customPalette, hex]);
+    }
+  };
+
+  const removeFromCustomPalette = (hex) => {
+    setCustomPalette(customPalette.filter(c => c !== hex));
+  };
+
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  };
+
+  // Simple quantization using custom palette
+  const quantizeWithCustomPalette = (pixels, width, height, palette) => {
+    const paletteRgb = palette.map(hexToRgb);
+    const quantized = [];
+    
+    for (let y = 0; y < height; y++) {
+      const row = [];
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const pixel = { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] };
+        
+        // Find nearest palette color
+        let minDist = Infinity;
+        let closestColor = paletteRgb[0];
+        paletteRgb.forEach(p => {
+          const dist = colorDistance(pixel, p);
+          if (dist < minDist) {
+            minDist = dist;
+            closestColor = p;
+          }
+        });
+        
+        row.push(closestColor);
+      }
+      quantized.push(row);
+    }
+    
+    return quantized;
+  };
+
   // Simple color distance function
   const colorDistance = (c1, c2) => {
     return Math.sqrt(
@@ -79,61 +159,137 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
     );
   };
 
-  // K-means++ initialization for better starting centroids
-  const initializeCentroids = (colors, numColors) => {
-    // K-means++ for better initialization
-    const centroids = [];
-    
-    // Always include white as first centroid (background color)
-    centroids.push({ r: 255, g: 255, b: 255 });
-    
-    if (numColors === 1) {
-      // For 1 color, find the average of non-white pixels
-      const nonWhiteColors = colors.filter(c => {
-        const brightness = (c.r + c.g + c.b) / 3;
-        return brightness < 240; // Not near-white
-      });
-      
-      if (nonWhiteColors.length > 0) {
-        const avg = {
-          r: Math.round(nonWhiteColors.reduce((sum, c) => sum + c.r, 0) / nonWhiteColors.length),
-          g: Math.round(nonWhiteColors.reduce((sum, c) => sum + c.g, 0) / nonWhiteColors.length),
-          b: Math.round(nonWhiteColors.reduce((sum, c) => sum + c.b, 0) / nonWhiteColors.length)
-        };
-        centroids.push(avg);
-      } else {
-        // All white image, add a default dark color
-        centroids.push({ r: 0, g: 0, b: 0 });
-      }
-      return centroids;
-    }
-
-    // Pick remaining centroids with k-means++ (farthest from existing)
-    while (centroids.length < numColors + 1) { // +1 because white is always included
-      let maxDist = 0;
-      let farthestColor = colors[0];
-      
-      colors.forEach(color => {
-        let minDistToCentroid = Infinity;
-        centroids.forEach(centroid => {
-          const dist = colorDistance(color, centroid);
-          if (dist < minDistToCentroid) {
-            minDistToCentroid = dist;
-          }
-        });
-        if (minDistToCentroid > maxDist) {
-          maxDist = minDistToCentroid;
-          farthestColor = color;
-        }
-      });
-      
-      centroids.push({ ...farthestColor });
-    }
-    
-    return centroids;
+  // Get color saturation (how "colorful" it is - high for red, low for grey)
+  const getColorSaturation = (c) => {
+    const max = Math.max(c.r, c.g, c.b);
+    const min = Math.min(c.r, c.g, c.b);
+    if (max === 0) return 0;
+    return (max - min) / max;
   };
 
-  // K-means clustering for color quantization
+  // Find distinct colors using TWO-PASS approach
+  const findDistinctColors = (colors, numColors) => {
+    // ===== PASS 1: Find MAIN colors using large buckets =====
+    const mainBuckets = {};
+    const largeBucketSize = 60;
+    
+    colors.forEach(c => {
+      const key = `${Math.floor(c.r/largeBucketSize)*largeBucketSize},${Math.floor(c.g/largeBucketSize)*largeBucketSize},${Math.floor(c.b/largeBucketSize)*largeBucketSize}`;
+      if (!mainBuckets[key]) {
+        mainBuckets[key] = { count: 0, totalR: 0, totalG: 0, totalB: 0 };
+      }
+      mainBuckets[key].count++;
+      mainBuckets[key].totalR += c.r;
+      mainBuckets[key].totalG += c.g;
+      mainBuckets[key].totalB += c.b;
+    });
+    
+    let mainColors = Object.values(mainBuckets).map(data => ({
+      r: Math.round(data.totalR / data.count),
+      g: Math.round(data.totalG / data.count),
+      b: Math.round(data.totalB / data.count),
+      count: data.count,
+      saturation: getColorSaturation({
+        r: Math.round(data.totalR / data.count),
+        g: Math.round(data.totalG / data.count),
+        b: Math.round(data.totalB / data.count)
+      })
+    }));
+    
+    // ===== PASS 2: Hunt for SATURATED colors using small buckets =====
+    const satBuckets = {};
+    const smallBucketSize = 25;
+    
+    colors.forEach(c => {
+      const sat = getColorSaturation(c);
+      if (sat > 0.35) { // Only track saturated pixels
+        const key = `${Math.floor(c.r/smallBucketSize)*smallBucketSize},${Math.floor(c.g/smallBucketSize)*smallBucketSize},${Math.floor(c.b/smallBucketSize)*smallBucketSize}`;
+        if (!satBuckets[key]) {
+          satBuckets[key] = { count: 0, totalR: 0, totalG: 0, totalB: 0 };
+        }
+        satBuckets[key].count++;
+        satBuckets[key].totalR += c.r;
+        satBuckets[key].totalG += c.g;
+        satBuckets[key].totalB += c.b;
+      }
+    });
+    
+    let saturatedColors = Object.values(satBuckets).map(data => ({
+      r: Math.round(data.totalR / data.count),
+      g: Math.round(data.totalG / data.count),
+      b: Math.round(data.totalB / data.count),
+      count: data.count,
+      saturation: getColorSaturation({
+        r: Math.round(data.totalR / data.count),
+        g: Math.round(data.totalG / data.count),
+        b: Math.round(data.totalB / data.count)
+      })
+    })).filter(c => c.count >= 3); // Need at least 3 pixels
+    
+    // Sort main colors by frequency, saturated by saturation
+    mainColors.sort((a, b) => b.count - a.count);
+    saturatedColors.sort((a, b) => b.saturation - a.saturation);
+    
+    // ===== BUILD PALETTE =====
+    const palette = [{ r: 255, g: 255, b: 255 }]; // White background
+    
+    // Add main colors (skip white and grey)
+    for (const c of mainColors) {
+      if (palette.length >= numColors) break; // Leave room for saturated color
+      
+      // Skip near-white
+      if (c.r > 220 && c.g > 220 && c.b > 220) continue;
+      
+      // Skip grey (anti-aliasing)
+      const brightness = (c.r + c.g + c.b) / 3;
+      if (c.saturation < 0.12 && brightness > 40 && brightness < 210) continue;
+      
+      // Check distinct
+      const isDup = palette.some(p => colorDistance(p, c) < 70);
+      if (!isDup) {
+        // Snap to clean colors
+        if (c.r < 50 && c.g < 50 && c.b < 50) {
+          palette.push({ r: 0, g: 0, b: 0 }); // Pure black
+        } else if (c.saturation < 0.3 && c.r > 150) {
+          palette.push({ r: 235, g: 210, b: 175 }); // Clean beige
+        } else {
+          palette.push({ r: c.r, g: c.g, b: c.b });
+        }
+      }
+    }
+    
+    // ALWAYS reserve last slot for most saturated color (like red tongue!)
+    if (saturatedColors.length > 0 && palette.length <= numColors) {
+      const mostSaturated = saturatedColors[0];
+      const isDup = palette.some(p => colorDistance(p, mostSaturated) < 50);
+      if (!isDup) {
+        // Snap red colors to clean red
+        if (mostSaturated.r > mostSaturated.g && mostSaturated.r > mostSaturated.b) {
+          palette.push({ r: 205, g: 50, b: 50 }); // Clean red
+        } else {
+          palette.push({ r: mostSaturated.r, g: mostSaturated.g, b: mostSaturated.b });
+        }
+      }
+    }
+    
+    // Fill remaining with main colors if needed
+    for (const c of mainColors) {
+      if (palette.length >= numColors + 1) break;
+      const isDup = palette.some(p => colorDistance(p, c) < 70);
+      if (!isDup && c.r < 220) {
+        palette.push({ r: c.r, g: c.g, b: c.b });
+      }
+    }
+    
+    // If we don't have enough colors, add black as fallback
+    while (palette.length < numColors + 1) {
+      palette.push({ r: 0, g: 0, b: 0 });
+    }
+    
+    return palette;
+  };
+
+  // Color quantization using distinct color finding
   const quantizeColors = (pixels, width, height, numColors) => {
     // Collect all colors
     const colors = [];
@@ -141,60 +297,56 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
       colors.push({ r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] });
     }
 
-    // Initialize centroids using k-means++
-    let centroids = initializeCentroids(colors, numColors);
-    const totalCentroids = centroids.length; // white + numColors
+    // Find the most distinct colors in the image
+    const palette = findDistinctColors(colors, numColors);
 
-    // Run k-means iterations
-    for (let iter = 0; iter < 20; iter++) {
-      // Assign colors to nearest centroid
-      const clusters = Array(totalCentroids).fill(null).map(() => []);
-      
-      colors.forEach(color => {
-        let minDist = Infinity;
-        let closestIdx = 0;
-        centroids.forEach((centroid, idx) => {
-          const dist = colorDistance(color, centroid);
-          if (dist < minDist) {
-            minDist = dist;
-            closestIdx = idx;
-          }
-        });
-        clusters[closestIdx].push(color);
-      });
-
-      // Update centroids (but keep white fixed at index 0)
-      centroids = clusters.map((cluster, idx) => {
-        if (idx === 0) return { r: 255, g: 255, b: 255 }; // Keep white fixed
-        if (cluster.length === 0) return centroids[idx];
-        const avg = {
-          r: Math.round(cluster.reduce((sum, c) => sum + c.r, 0) / cluster.length),
-          g: Math.round(cluster.reduce((sum, c) => sum + c.g, 0) / cluster.length),
-          b: Math.round(cluster.reduce((sum, c) => sum + c.b, 0) / cluster.length)
-        };
-        return avg;
-      });
-    }
-
-    // Map each pixel to nearest centroid
+    // Map each pixel to nearest palette color (with smart anti-aliasing handling)
     const quantized = [];
+    
+    // Find which palette colors are "special" (black, white, saturated)
+    const blackInPalette = palette.find(p => p.r < 30 && p.g < 30 && p.b < 30);
+    const whiteInPalette = palette.find(p => p.r > 240 && p.g > 240 && p.b > 240);
+    const redInPalette = palette.find(p => p.r > 150 && p.g < 100 && p.b < 100);
+    
     for (let y = 0; y < height; y++) {
       const row = [];
       for (let x = 0; x < width; x++) {
         const i = (y * width + x);
         const color = colors[i];
+        const brightness = (color.r + color.g + color.b) / 3;
+        const saturation = getColorSaturation(color);
         
-        let minDist = Infinity;
-        let closestCentroid = centroids[0];
-        centroids.forEach(centroid => {
-          const dist = colorDistance(color, centroid);
-          if (dist < minDist) {
-            minDist = dist;
-            closestCentroid = centroid;
-          }
-        });
+        let closestColor;
         
-        row.push(closestCentroid);
+        // Rule 1: Very dark pixels → black (even if brownish/reddish)
+        if (brightness < 60 && blackInPalette) {
+          closestColor = blackInPalette;
+        }
+        // Rule 2: Very light pixels → white
+        else if (brightness > 230 && whiteInPalette) {
+          closestColor = whiteInPalette;
+        }
+        // Rule 3: Only assign to RED if it's actually bright and saturated red
+        else if (redInPalette && saturation > 0.4 && color.r > 150 && color.r > color.g * 1.5 && color.r > color.b * 1.5) {
+          closestColor = redInPalette;
+        }
+        // Rule 4: Everything else → find nearest by color distance
+        else {
+          let minDist = Infinity;
+          closestColor = palette[0];
+          palette.forEach(p => {
+            // Skip red for non-saturated pixels
+            if (redInPalette && p === redInPalette && saturation < 0.35) return;
+            
+            const dist = colorDistance(color, p);
+            if (dist < minDist) {
+              minDist = dist;
+              closestColor = p;
+            }
+          });
+        }
+        
+        row.push(closestColor);
       }
       quantized.push(row);
     }
@@ -227,8 +379,21 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
       // Convert to grid format
       const newGrid = [];
       
-      if (colorCount >= 1) {
-        // Quantize colors to specified number
+      if (paletteMode === 'custom' && customPalette.length > 0) {
+        // Use custom palette
+        const quantized = quantizeWithCustomPalette(pixels, resultSize.width, resultSize.height, customPalette);
+        
+        for (let y = 0; y < resultSize.height; y++) {
+          const row = [];
+          for (let x = 0; x < resultSize.width; x++) {
+            const color = quantized[y][x];
+            const hex = rgbToHex(color.r, color.g, color.b);
+            row.push({ color: hex, symbol: 'knit' });
+          }
+          newGrid.push(row);
+        }
+      } else if (colorCount >= 1) {
+        // Auto-detect colors with specified count
         const quantized = quantizeColors(pixels, resultSize.width, resultSize.height, colorCount);
         
         for (let y = 0; y < resultSize.height; y++) {
@@ -342,25 +507,125 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
           </div>
         </div>
 
-        <div className="color-control">
-          <div className="size-input">
-            <label>Antall farger:</label>
-            <input
-              type="number"
-              value={colorCount}
-              onChange={(e) => handleColorCountChange(e.target.value)}
-              min="0"
-              max="50"
-              placeholder="0"
-            />
-            <span className="color-hint">{colorCount === 0 ? '(alle farger)' : `(hvit + ${colorCount} farger)`}</span>
+        <div className="palette-mode-section">
+          <label className="section-label">Fargevalg:</label>
+          <div className="palette-mode-toggle">
+            <button 
+              className={`mode-btn ${paletteMode === 'auto' ? 'active' : ''}`}
+              onClick={() => setPaletteMode('auto')}
+            >
+              🎨 Auto-detekter
+            </button>
+            <button 
+              className={`mode-btn ${paletteMode === 'custom' ? 'active' : ''}`}
+              onClick={() => setPaletteMode('custom')}
+            >
+              🧶 Velg farger
+            </button>
           </div>
         </div>
+
+        {paletteMode === 'auto' ? (
+          <div className="color-control">
+            <div className="size-input">
+              <label>Antall farger:</label>
+              <input
+                type="number"
+                value={colorCount}
+                onChange={(e) => handleColorCountChange(e.target.value)}
+                min="0"
+                max="50"
+                placeholder="0"
+              />
+              <span className="color-hint">{colorCount === 0 ? '(alle farger)' : `(hvit + ${colorCount} farger)`}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="custom-palette-section">
+            <label className="section-label">Velg dine garnfarger:</label>
+            
+            {/* Selected colors */}
+            {customPalette.length > 0 && (
+              <div className="selected-colors">
+                <span className="selected-label">Valgte farger ({customPalette.length}):</span>
+                <div className="selected-colors-list">
+                  {customPalette.map(hex => {
+                    const color = YARN_COLORS.find(c => c.hex === hex);
+                    return (
+                      <div key={hex} className="selected-color-item">
+                        <span 
+                          className="color-dot" 
+                          style={{ backgroundColor: hex }}
+                          title={color?.name || hex}
+                        />
+                        <button 
+                          className="remove-color-btn"
+                          onClick={() => removeFromCustomPalette(hex)}
+                          title="Fjern farge"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {/* Available yarn colors */}
+            <div className="yarn-colors-grid">
+              {YARN_COLORS.map(color => (
+                <button
+                  key={color.hex}
+                  className={`yarn-color-btn ${customPalette.includes(color.hex) ? 'selected' : ''}`}
+                  style={{ backgroundColor: color.hex }}
+                  onClick={() => customPalette.includes(color.hex) 
+                    ? removeFromCustomPalette(color.hex) 
+                    : addToCustomPalette(color.hex)
+                  }
+                  title={color.name}
+                />
+              ))}
+            </div>
+            
+            {/* Custom color picker */}
+            <div className="custom-color-picker">
+              <label>Egendefinert farge:</label>
+              <div className="custom-color-input">
+                <input
+                  type="color"
+                  id="customColorInput"
+                  defaultValue="#FF0000"
+                />
+                <button 
+                  className="add-custom-color-btn"
+                  onClick={() => {
+                    const input = document.getElementById('customColorInput');
+                    if (input && !customPalette.includes(input.value.toUpperCase())) {
+                      addToCustomPalette(input.value.toUpperCase());
+                    }
+                  }}
+                >
+                  + Legg til
+                </button>
+              </div>
+            </div>
+            
+            {customPalette.length === 0 && (
+              <p className="palette-hint">Klikk på fargene over eller legg til egne farger</p>
+            )}
+          </div>
+        )}
 
         {resultSize && (
           <div className="result-size">
             Resultat: <strong>{resultSize.width} × {resultSize.height}</strong> masker
-            {colorCount > 0 && <span> med hvit + {colorCount} farger</span>}
+            {paletteMode === 'custom' && customPalette.length > 0 && (
+              <span> med {customPalette.length} valgte farger</span>
+            )}
+            {paletteMode === 'auto' && colorCount > 0 && (
+              <span> med hvit + {colorCount} farger</span>
+            )}
           </div>
         )}
 
@@ -371,7 +636,7 @@ export default function ImageUpload({ onImageProcessed, onClose }) {
           <button 
             className="btn-generate" 
             onClick={handleGenerate}
-            disabled={!preview}
+            disabled={!preview || (paletteMode === 'custom' && customPalette.length === 0)}
           >
             ✨ Generer mønster
           </button>

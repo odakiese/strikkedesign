@@ -1,4 +1,15 @@
+import { useState } from 'react';
 import './ColorPalette.css';
+
+// Helper to determine if a color is light (for text contrast)
+const isLightColor = (hex) => {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substr(0, 2), 16);
+  const g = parseInt(c.substr(2, 2), 16);
+  const b = parseInt(c.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128;
+};
 
 const YARN_COLORS = [
   { name: 'Hvit', hex: '#FFFFFF' },
@@ -32,7 +43,24 @@ const isPresetColor = (hex) => {
   return YARN_COLORS.some(c => c.hex.toLowerCase() === hex.toLowerCase());
 };
 
-export default function ColorPalette({ selectedColor, setSelectedColor, recentColors, setRecentColors }) {
+export default function ColorPalette({ 
+  selectedColor, 
+  setSelectedColor, 
+  recentColors, 
+  setRecentColors,
+  onSwapColors,
+  usedColors = []
+}) {
+  const [fromColor, setFromColor] = useState('');
+  const [toColor, setToColor] = useState('#FFFFFF');
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+  const [showToDropdown, setShowToDropdown] = useState(false);
+
+  const handleSwap = () => {
+    if (fromColor && toColor && fromColor !== toColor) {
+      onSwapColors(fromColor, toColor);
+    }
+  };
   
   const handleCustomColorChange = (e) => {
     const newColor = e.target.value;
@@ -89,6 +117,103 @@ export default function ColorPalette({ selectedColor, setSelectedColor, recentCo
           value={selectedColor}
           onChange={handleCustomColorChange}
         />
+      </div>
+
+      {/* Color swap section */}
+      <div className="color-swap-section">
+        <h4>Bytt farge</h4>
+        <div className="swap-row">
+          <label>Fra:</label>
+          <div className="color-dropdown-wrapper">
+            <button 
+              className="color-dropdown-trigger"
+              onClick={() => setShowFromDropdown(!showFromDropdown)}
+              type="button"
+            >
+              {fromColor ? (
+                <>
+                  <span className="color-swatch-mini" style={{ backgroundColor: fromColor }} />
+                  <span>{YARN_COLORS.find(c => c.hex.toLowerCase() === fromColor.toLowerCase())?.name || fromColor}</span>
+                </>
+              ) : (
+                <span className="placeholder">Velg farge...</span>
+              )}
+              <span className="dropdown-arrow">▾</span>
+            </button>
+            {showFromDropdown && (
+              <div className="color-dropdown-menu">
+                {usedColors.length === 0 ? (
+                  <div className="dropdown-empty">Ingen farger i mønster</div>
+                ) : (
+                  usedColors.map(color => (
+                    <button
+                      key={color}
+                      className={`color-dropdown-item ${fromColor === color ? 'selected' : ''}`}
+                      onClick={() => { setFromColor(color); setShowFromDropdown(false); }}
+                      type="button"
+                    >
+                      <span className="color-swatch-mini" style={{ backgroundColor: color }} />
+                      <span>{YARN_COLORS.find(c => c.hex.toLowerCase() === color.toLowerCase())?.name || color}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="swap-row">
+          <label>Til:</label>
+          <div className="color-dropdown-wrapper">
+            <button 
+              className="color-dropdown-trigger"
+              onClick={() => setShowToDropdown(!showToDropdown)}
+              type="button"
+            >
+              <span className="color-swatch-mini" style={{ backgroundColor: toColor }} />
+              <span>{YARN_COLORS.find(c => c.hex.toLowerCase() === toColor.toLowerCase())?.name || toColor}</span>
+              <span className="dropdown-arrow">▾</span>
+            </button>
+            {showToDropdown && (
+              <div className="color-dropdown-menu">
+                <div className="dropdown-section-label">Garnfarger</div>
+                {YARN_COLORS.map(color => (
+                  <button
+                    key={color.hex}
+                    className={`color-dropdown-item ${toColor === color.hex ? 'selected' : ''}`}
+                    onClick={() => { setToColor(color.hex); setShowToDropdown(false); }}
+                    type="button"
+                  >
+                    <span className="color-swatch-mini" style={{ backgroundColor: color.hex }} />
+                    <span>{color.name}</span>
+                  </button>
+                ))}
+                {recentColors.length > 0 && (
+                  <>
+                    <div className="dropdown-section-label">Egendefinerte</div>
+                    {recentColors.map(color => (
+                      <button
+                        key={color}
+                        className={`color-dropdown-item ${toColor === color ? 'selected' : ''}`}
+                        onClick={() => { setToColor(color); setShowToDropdown(false); }}
+                        type="button"
+                      >
+                        <span className="color-swatch-mini" style={{ backgroundColor: color }} />
+                        <span>{color}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <button 
+          className="btn-swap" 
+          onClick={handleSwap}
+          disabled={!fromColor || !toColor || fromColor === toColor}
+        >
+          🔄 Bytt alle
+        </button>
       </div>
     </div>
   );

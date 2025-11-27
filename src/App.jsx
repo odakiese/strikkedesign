@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Grid from './components/Grid';
 import ColorPalette from './components/ColorPalette';
 import SymbolPalette, { CABLE_SYMBOLS, KNITTING_SYMBOLS } from './components/SymbolPalette';
@@ -219,6 +219,29 @@ function App() {
 
   const handleClear = useCallback(() => {
     setGrid(createEmptyGrid(grid[0].length, grid.length));
+  }, [grid]);
+
+  // Swap all occurrences of one color with another
+  const handleSwapColors = useCallback((fromColor, toColor) => {
+    setGrid(prevGrid => {
+      return prevGrid.map(row => 
+        row.map(cell => ({
+          ...cell,
+          color: cell.color.toUpperCase() === fromColor.toUpperCase() ? toColor : cell.color
+        }))
+      );
+    });
+  }, [setGrid]);
+
+  // Get all unique colors used in the grid
+  const usedColors = useMemo(() => {
+    const colors = new Set();
+    grid.forEach(row => {
+      row.forEach(cell => {
+        colors.add(cell.color.toUpperCase());
+      });
+    });
+    return Array.from(colors).sort();
   }, [grid]);
 
   const handleImageProcessed = useCallback((newGrid, newWidth, newHeight) => {
@@ -446,6 +469,8 @@ function App() {
             setSelectedColor={setSelectedColor}
             recentColors={recentColors}
             setRecentColors={setRecentColors}
+            onSwapColors={handleSwapColors}
+            usedColors={usedColors}
           />
           <SymbolPalette
             selectedSymbol={selectedSymbol}

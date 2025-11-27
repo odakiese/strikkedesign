@@ -219,3 +219,42 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+/* Color swap section */
+.color-swap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.swap-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.swap-row label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 30px;
+}
+
+.swap-row input[type="color"] {
+  width: 60px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.color-select {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
