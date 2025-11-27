@@ -462,7 +462,7 @@ export default function SymbolPalette({ selectedSymbol, setSelectedSymbol }) {
               key={sym.id}
               className={`symbol-button ${selectedSymbol === sym.id ? 'selected' : ''}`}
               onClick={() => setSelectedSymbol(sym.id)}
-              title={sym.name}
+              title={`${sym.name}: ${sym.description}`}
             >
               <svg width="28" height="21" viewBox="0 0 20 15">
                 <rect x="0" y="0" width="20" height="15" fill="#FFFFFF" stroke="#ccc" strokeWidth="0.5" />
@@ -482,7 +482,7 @@ export default function SymbolPalette({ selectedSymbol, setSelectedSymbol }) {
               key={sym.id}
               className={`symbol-button cable-button ${selectedSymbol === sym.id ? 'selected' : ''}`}
               onClick={() => setSelectedSymbol(sym.id)}
-              title={`${sym.name} (${sym.width} masker)`}
+              title={`${sym.name}: ${sym.description}`}
             >
               <svg width={sym.width * 14} height="21" viewBox={`0 0 ${sym.width * 20} 15`}>
                 {Array.from({ length: sym.width }, (_, i) => (

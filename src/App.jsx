@@ -31,6 +31,8 @@ function App() {
   const [topToBottom, setTopToBottom] = useState(true);
   const [showThickLines, setShowThickLines] = useState(true);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [selection, setSelection] = useState(null); // { startRow, startCol, endRow, endCol }
+  const [clipboard, setClipboard] = useState(null); // Copied cells data
   const gridRef = useRef(null);
   const isUndoRedoAction = useRef(false);
 
@@ -95,7 +97,82 @@ function App() {
     setTimeout(() => { isUndoRedoAction.current = false; }, 0);
   }, [future, grid]);
 
-  // Keyboard shortcuts for undo/redo
+  // Copy selected cells
+  const handleCopy = useCallback(() => {
+    if (!selection) return;
+    
+    const minRow = Math.min(selection.startRow, selection.endRow);
+    const maxRow = Math.max(selection.startRow, selection.endRow);
+    const minCol = Math.min(selection.startCol, selection.endCol);
+    const maxCol = Math.max(selection.startCol, selection.endCol);
+    
+    const copiedCells = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      const row = [];
+      for (let c = minCol; c <= maxCol; c++) {
+        row.push({ ...grid[r][c] });
+      }
+      copiedCells.push(row);
+    }
+    
+    setClipboard(copiedCells);
+  }, [selection, grid]);
+
+  // Paste clipboard at selection start
+  const handlePaste = useCallback(() => {
+    if (!clipboard || !selection) return;
+    
+    const startRow = Math.min(selection.startRow, selection.endRow);
+    const startCol = Math.min(selection.startCol, selection.endCol);
+    
+    const newGrid = grid.map((row, rowIndex) => 
+      row.map((cell, colIndex) => {
+        const pasteRow = rowIndex - startRow;
+        const pasteCol = colIndex - startCol;
+        
+        if (pasteRow >= 0 && pasteRow < clipboard.length &&
+            pasteCol >= 0 && pasteCol < clipboard[0].length) {
+          return { ...clipboard[pasteRow][pasteCol] };
+        }
+        return cell;
+      })
+    );
+    
+    setGrid(newGrid);
+  }, [clipboard, selection, grid, setGrid]);
+
+  // Paste clipboard mirrored (horizontally flipped)
+  const handlePasteMirrored = useCallback(() => {
+    if (!clipboard || !selection) return;
+    
+    const startRow = Math.min(selection.startRow, selection.endRow);
+    const startCol = Math.min(selection.startCol, selection.endCol);
+    const clipboardWidth = clipboard[0].length;
+    
+    const newGrid = grid.map((row, rowIndex) => 
+      row.map((cell, colIndex) => {
+        const pasteRow = rowIndex - startRow;
+        const pasteCol = colIndex - startCol;
+        
+        if (pasteRow >= 0 && pasteRow < clipboard.length &&
+            pasteCol >= 0 && pasteCol < clipboardWidth) {
+          // Mirror: take from the opposite side
+          const mirroredCol = clipboardWidth - 1 - pasteCol;
+          return { ...clipboard[pasteRow][mirroredCol] };
+        }
+        return cell;
+      })
+    );
+    
+    setGrid(newGrid);
+  }, [clipboard, selection, grid, setGrid]);
+
+  // Clear selection
+  const handleClearSelection = useCallback(() => {
+    setSelection(null);
+  }, []);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
@@ -104,12 +181,29 @@ function App() {
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         handleRedo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        if (selection) {
+          e.preventDefault();
+          handleCopy();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'v' && e.shiftKey) {
+        if (clipboard && selection) {
+          e.preventDefault();
+          handlePasteMirrored();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'v' && !e.shiftKey) {
+        if (clipboard && selection) {
+          e.preventDefault();
+          handlePaste();
+        }
+      } else if (e.key === 'Escape') {
+        handleClearSelection();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, handleCopy, handlePaste, handlePasteMirrored, handleClearSelection, selection, clipboard]);
 
   const handleNewPattern = useCallback(() => {
     setGrid(createEmptyGrid(gridWidth, gridHeight));
@@ -245,8 +339,8 @@ function App() {
         const legendCanvas = document.createElement('canvas');
         const legendCtx = legendCanvas.getContext('2d');
         
-        const rowHeight = 50;
-        const legendWidth = 500;
+        const rowHeight = 45;
+        const legendWidth = 600;
         const legendHeight = 60 + usedSymbols.length * rowHeight;
         
         legendCanvas.width = legendWidth;
@@ -265,43 +359,58 @@ function App() {
         usedSymbols.forEach((symbol, index) => {
           const y = 60 + index * rowHeight;
           
+          // Calculate box width based on symbol width
+          const symbolCells = symbol.width || 1;
+          const boxWidth = symbolCells * 20;
+          const textStartX = 20 + boxWidth + 15;
+          
           // Draw symbol box background
           legendCtx.fillStyle = '#ffffff';
-          legendCtx.fillRect(20, y, 40, 30);
+          legendCtx.fillRect(20, y, boxWidth, 30);
           legendCtx.strokeStyle = '#ccc';
           legendCtx.lineWidth = 1;
-          legendCtx.strokeRect(20, y, 40, 30);
+          legendCtx.strokeRect(20, y, boxWidth, 30);
+          
+          // Draw cell dividers for multi-cell symbols
+          if (symbolCells > 1) {
+            for (let i = 1; i < symbolCells; i++) {
+              legendCtx.beginPath();
+              legendCtx.moveTo(20 + i * 20, y);
+              legendCtx.lineTo(20 + i * 20, y + 30);
+              legendCtx.strokeStyle = '#ddd';
+              legendCtx.stroke();
+            }
+          }
 
           // Draw the symbol
-          const symbolWidth = (symbol.width || 1) * 20;
-          const symbolX = 20 + (40 - symbolWidth) / 2;
           const symbolY = y + (30 - 15) / 2;
           
           if (symbol.width && symbol.width > 1) {
             // Cable symbol
-            drawCableOnCanvas(legendCtx, symbol.id, symbolX, symbolY, symbolWidth, 15, 20);
+            drawCableOnCanvas(legendCtx, symbol.id, 20, symbolY, boxWidth, 15, 20);
           } else {
             // Single-cell symbol
-            drawSymbolOnCanvas(legendCtx, symbol.id, symbolX, symbolY, 20, 15);
+            drawSymbolOnCanvas(legendCtx, symbol.id, 20, symbolY, 20, 15);
           }
 
-          // Draw name
+          // Draw name and description on same line
           legendCtx.fillStyle = '#1a1a1a';
-          legendCtx.font = 'bold 14px sans-serif';
-          legendCtx.fillText(symbol.name, 75, y + 15);
-
-          // Draw description
+          legendCtx.font = '14px sans-serif';
+          const nameText = symbol.name;
+          legendCtx.fillText(nameText, textStartX, y + 20);
+          
+          // Add description after name
+          const nameWidth = legendCtx.measureText(nameText).width;
           legendCtx.fillStyle = '#666';
           legendCtx.font = '12px sans-serif';
-          const description = symbol.description || '';
-          // Truncate if too long
-          const maxWidth = legendWidth - 90;
+          const description = symbol.description ? ` – ${symbol.description}` : '';
+          const maxWidth = legendWidth - textStartX - nameWidth - 10;
           let displayText = description;
           while (legendCtx.measureText(displayText).width > maxWidth && displayText.length > 0) {
             displayText = displayText.slice(0, -1);
           }
-          if (displayText !== description) displayText += '...';
-          legendCtx.fillText(displayText, 75, y + 32);
+          if (displayText !== description && displayText.length > 0) displayText += '...';
+          legendCtx.fillText(displayText, textStartX + nameWidth, y + 20);
         });
 
         // Download legend image
@@ -348,6 +457,9 @@ function App() {
             cellHeight={CELL_HEIGHT}
             topToBottom={topToBottom}
             showThickLines={showThickLines}
+            selection={selection}
+            setSelection={setSelection}
+            clipboard={clipboard}
           />
         </section>
         
@@ -361,10 +473,6 @@ function App() {
             onExport={handleExport}
             onNewPattern={handleNewPattern}
             onOpenImageUpload={() => setShowImageUpload(true)}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={history.length > 0}
-            canRedo={future.length > 0}
             topToBottom={topToBottom}
             setTopToBottom={setTopToBottom}
             showThickLines={showThickLines}

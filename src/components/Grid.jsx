@@ -12,9 +12,13 @@ export default function Grid({
   cellWidth = 20,
   cellHeight = 15,
   topToBottom = true,
-  showThickLines = true
+  showThickLines = true,
+  selection,
+  setSelection,
+  clipboard
 }) {
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
   const svgRef = useRef(null);
   
   const handleCellClick = (row, col) => {
@@ -52,7 +56,19 @@ export default function Grid({
   
   const isCable = CABLE_SYMBOLS.some(c => c.id === selectedSymbol);
 
-  const handleMouseDown = (row, col) => {
+  const handleMouseDown = (row, col, e) => {
+    // Shift+click starts selection
+    if (e.shiftKey) {
+      setIsSelecting(true);
+      setSelection({ startRow: row, startCol: col, endRow: row, endCol: col });
+      return;
+    }
+    
+    // Clear selection when painting
+    if (selection) {
+      setSelection(null);
+    }
+    
     // Only enable drag for non-cable symbols
     if (!isCable) {
       setIsDrawing(true);
@@ -61,6 +77,10 @@ export default function Grid({
   };
 
   const handleMouseEnter = (row, col) => {
+    if (isSelecting) {
+      setSelection(prev => prev ? { ...prev, endRow: row, endCol: col } : null);
+      return;
+    }
     if (isDrawing && !isCable) {
       handleCellClick(row, col);
     }
@@ -68,10 +88,22 @@ export default function Grid({
 
   const handleMouseUp = () => {
     setIsDrawing(false);
+    setIsSelecting(false);
   };
 
   const handleMouseLeave = () => {
     setIsDrawing(false);
+    setIsSelecting(false);
+  };
+  
+  // Check if a cell is within the selection
+  const isCellSelected = (row, col) => {
+    if (!selection) return false;
+    const minRow = Math.min(selection.startRow, selection.endRow);
+    const maxRow = Math.max(selection.startRow, selection.endRow);
+    const minCol = Math.min(selection.startCol, selection.endCol);
+    const maxCol = Math.max(selection.startCol, selection.endCol);
+    return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
   };
 
   const LABEL_SIZE = 24;
@@ -130,15 +162,30 @@ export default function Grid({
                 width={cellWidth}
                 height={cellHeight}
                 fill={cell.color}
-                stroke="#2a2a2a"
-                strokeWidth="0.5"
+                stroke={isCellSelected(rowIndex, colIndex) ? "#4169E1" : "#2a2a2a"}
+                strokeWidth={isCellSelected(rowIndex, colIndex) ? "2" : "0.5"}
                 className="grid-cell"
-                onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
+                onMouseDown={(e) => handleMouseDown(rowIndex, colIndex, e)}
                 onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
               />
             ))
           )}
         </g>
+        
+        {/* Selection overlay */}
+        {selection && (
+          <rect
+            x={Math.min(selection.startCol, selection.endCol) * cellWidth}
+            y={Math.min(selection.startRow, selection.endRow) * cellHeight}
+            width={(Math.abs(selection.endCol - selection.startCol) + 1) * cellWidth}
+            height={(Math.abs(selection.endRow - selection.startRow) + 1) * cellHeight}
+            fill="rgba(65, 105, 225, 0.2)"
+            stroke="#4169E1"
+            strokeWidth="2"
+            strokeDasharray="4,2"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
         
         {/* Pass 2: Symbols (rendered on top of all backgrounds) */}
         <g style={{ pointerEvents: 'none' }}>

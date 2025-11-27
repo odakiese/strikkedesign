@@ -9,10 +9,6 @@ export default function Toolbar({
   onExport,
   onNewPattern,
   onOpenImageUpload,
-  onUndo,
-  onRedo,
-  canUndo,
-  canRedo,
   topToBottom,
   setTopToBottom,
   showThickLines,
@@ -79,28 +75,6 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-section">
-        <h3>Angre</h3>
-        <div className="undo-redo-buttons">
-          <button 
-            className="btn btn-undo" 
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Angre (⌘Z)"
-          >
-            ↩️ Angre
-          </button>
-          <button 
-            className="btn btn-redo" 
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Gjør om (⌘Y)"
-          >
-            ↪️ Gjør om
-          </button>
-        </div>
-      </div>
-
-      <div className="toolbar-section">
         <h3>Handlinger</h3>
         <div className="action-buttons">
           <button className="btn btn-secondary" onClick={onClear}>
@@ -109,6 +83,20 @@ export default function Toolbar({
           <button className="btn btn-accent" onClick={onExport}>
             💾 Lagre som bilde
           </button>
+        </div>
+      </div>
+
+      <div className="toolbar-section shortcuts-section">
+        <h3>Hurtigtaster</h3>
+        <div className="shortcuts-list">
+          <div className="shortcut"><kbd>Shift</kbd> + dra → Marker område</div>
+          <div className="shortcut"><kbd>⌘C</kbd> → Kopier markering</div>
+          <div className="shortcut"><kbd>Shift</kbd> + klikk → Velg hvor du limer inn</div>
+          <div className="shortcut"><kbd>⌘V</kbd> → Lim inn</div>
+          <div className="shortcut"><kbd>⌘</kbd><kbd>Shift</kbd><kbd>V</kbd> → Lim inn speilvendt</div>
+          <div className="shortcut"><kbd>⌘Z</kbd> → Angre</div>
+          <div className="shortcut"><kbd>⌘Y</kbd> → Gjør om</div>
+          <div className="shortcut"><kbd>Esc</kbd> → Fjern markering</div>
         </div>
       </div>
     </div>
